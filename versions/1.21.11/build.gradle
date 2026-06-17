@@ -3,4 +3,6 @@ plugins {
     id "maven-publish"
 }
 
-apply from: "build-common.gradle"
+ext.crh_source_root = file("../..")
+
+apply from: "../../build-common.gradle"

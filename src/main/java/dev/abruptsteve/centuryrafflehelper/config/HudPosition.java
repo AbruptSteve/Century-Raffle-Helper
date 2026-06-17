@@ -25,6 +25,12 @@ public class HudPosition {
         this.y = y;
     }
 
+    public HudPosition(int x, int y, float scale) {
+        this.x = x;
+        this.y = y;
+        this.scale = scale;
+    }
+
     public float scale() {
         if (scale <= 0.0f) {
             scale = DEFAULT_SCALE;
@@ -37,8 +43,12 @@ public class HudPosition {
     }
 
     public void reset(int defaultX, int defaultY) {
+        reset(defaultX, defaultY, DEFAULT_SCALE);
+    }
+
+    public void reset(int defaultX, int defaultY, float defaultScale) {
         x = defaultX;
         y = defaultY;
-        scale = DEFAULT_SCALE;
+        scale = defaultScale;
     }
 }

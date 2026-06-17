@@ -26,15 +26,23 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class RaffleLogic {
-    private static final Pattern GAINED_TICKETS = Pattern.compile("(?i)\\+(\\d[\\d,]*)\\s+raffle tickets?");
+    private static final Pattern GAINED_TICKETS = Pattern.compile("(?i)\\+(\\d[\\d,]*)\\s+raffle tickets?\\b");
     private static final Pattern OWNED_TICKETS_1 = Pattern.compile("(?i)(?:your|you have|total)[^\\d]{0,32}(\\d[\\d,]*)\\s+raffle tickets?");
     private static final Pattern OWNED_TICKETS_2 = Pattern.compile("(?i)raffle tickets?[^\\d]{0,32}(\\d[\\d,]*)");
     private static final Pattern COLON_TIME = Pattern.compile("(\\d{1,5}):(\\d{2})(?::(\\d{2}))?");
     private static final Pattern TOKEN_TIME = Pattern.compile("(?i)(\\d+)\\s*([dhms])");
     private static final Pattern COMPLETION_WORD = Pattern.compile("\\b(complete|completed|done|claimed)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ENTERED_RAFFLE_TICKETS = Pattern.compile("(?i)you\\s+entered\\s*:?\\s*(\\d[\\d,]*)\\s+tickets?");
+    private static final Pattern TASK_TIER_LINE = Pattern.compile("(?i)^(easy|medium|hard)\\s+task$");
+    private static final Pattern TASK_PROGRESS = Pattern.compile("(?i)\\[(\\d[\\d,]*)/(\\d[\\d,]*)\\]\\s*(easy|medium|hard)\\s+tasks?");
+    private static final Pattern TOTAL_TASK_PROGRESS = Pattern.compile("(?i)total\\s+tasks\\s+completed\\s*:?\\s*\\[(\\d[\\d,]*)/(\\d[\\d,]*)\\]");
+    private static final Pattern ITEM_ID_LINE = Pattern.compile("^[a-z0-9_.-]+:[a-z0-9_/.-]+$");
+    private static final Pattern COMPONENTS_LINE = Pattern.compile("(?i)^\\d+\\s+component\\(s\\)$");
     private static final List<RaffleTask> TASKS_BY_LONGEST_NAME = RaffleTask.ALL.stream()
         .sorted(Comparator.comparingInt((RaffleTask task) -> task.title.length()).reversed())
         .toList();
+    private static String lastTicketGainMessage = "";
+    private static long lastTicketGainMillis = 0L;
 
     private RaffleLogic() {
     }
@@ -44,25 +52,23 @@ public final class RaffleLogic {
             return true;
         }
         Minecraft client = Minecraft.getInstance();
-        if (client.getCurrentServer() == null || client.getCurrentServer().ip == null) {
-            return false;
+        if (client.getCurrentServer() != null && isHypixelAddress(client.getCurrentServer().ip)) {
+            return true;
         }
-        String address = client.getCurrentServer().ip.toLowerCase(Locale.ROOT);
-        return address.contains("hypixel.net") || address.contains("hypixel.io");
+        return hasHypixelScoreboard(client);
     }
 
-    public static void handleChat(String rawMessage) {
+    public static void handleChat(String rawMessage, boolean trustedServerMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return;
         String plain = stripFormatting(rawMessage);
         String normalized = RaffleTask.normalize(plain);
 
-        if (plain.contains("CAKE SLICE!")) {
-            CenturyRaffleHelperMod.STATE.consumeCakeSlice();
-        }
-
-        Matcher gained = GAINED_TICKETS.matcher(plain);
-        if (gained.find()) {
-            CenturyRaffleHelperMod.STATE.addTickets(parseNumber(gained.group(1)));
+        int gainedTickets = trustedServerMessage ? ticketGain(plain) : 0;
+        if (gainedTickets > 0 && !duplicateTicketGain(plain)) {
+            if (plain.startsWith("CAKE SLICE!")) {
+                CenturyRaffleHelperMod.STATE.consumeCakeSlice();
+            }
+            CenturyRaffleHelperMod.STATE.addTickets(gainedTickets);
         }
 
         if (looksLikeCompletion(normalized)) {
@@ -72,9 +78,11 @@ public final class RaffleLogic {
                     break;
                 }
             }
+            CenturyRaffleHelperMod.STATE.setObservedTaskCompleteFromText(plain, true);
         }
 
         parseEventEndFromLine(plain);
+        parseTaskResetFromLine(plain);
     }
 
     public static void tick(Minecraft client) {
@@ -112,11 +120,23 @@ public final class RaffleLogic {
         boolean likelyRaffleMenu = containsAny(title, "Raffle", "Daily Quests", "Daily Tasks", "Incredible Raffle Box");
         if (!likelyRaffleMenu) return;
 
+        boolean taskInventory = containsAny(title, "Raffle Tasks", "Daily Tasks", "Daily Quests");
+        List<ObservedRaffleTask> observedTasks = new ArrayList<>();
         for (Slot slot : containerScreen.getMenu().slots) {
             ItemStack stack = slot.getItem();
             if (stack.isEmpty()) continue;
             List<String> tooltip = tooltipLines(client, stack);
             parseInventoryText(title, tooltip);
+            if (taskInventory) {
+                ObservedRaffleTask task = parseTaskTooltip(tooltip);
+                if (task != null) {
+                    observedTasks.add(task);
+                }
+            }
+        }
+
+        if (taskInventory && !observedTasks.isEmpty()) {
+            CenturyRaffleHelperMod.STATE.replaceObservedTasks(observedTasks);
         }
     }
 
@@ -133,7 +153,10 @@ public final class RaffleLogic {
     private static void parseInventoryText(String inventoryTitle, List<String> tooltip) {
         String joined = stripFormatting(String.join("\n", tooltip));
         parseOwnedTickets(joined);
+        parseRaffleDrawTooltip(joined);
         parseEventEndFromLine(joined);
+        parseTaskResetFromLine(joined);
+        parseTaskProgress(joined);
 
         boolean isTaskArea = containsAny(inventoryTitle, "Daily Quests", "Daily Tasks", "Raffle", "Incredible Raffle Box");
         if (!isTaskArea) return;
@@ -144,6 +167,86 @@ public final class RaffleLogic {
             boolean completed = COMPLETION_WORD.matcher(normalized).find() && !normalized.contains("incomplete");
             CenturyRaffleHelperMod.STATE.setComplete(task, completed);
             break;
+        }
+    }
+
+    private static ObservedRaffleTask parseTaskTooltip(List<String> tooltip) {
+        List<String> lines = cleanedTooltipLines(tooltip);
+        if (lines.isEmpty()) return null;
+
+        int tierIndex = -1;
+        TaskTier tier = null;
+        for (int i = 0; i < lines.size(); i++) {
+            Matcher matcher = TASK_TIER_LINE.matcher(lines.get(i));
+            if (matcher.matches()) {
+                tier = parseTier(matcher.group(1));
+                tierIndex = i;
+                break;
+            }
+        }
+
+        if (tier == null || tierIndex <= 0) {
+            return null;
+        }
+
+        String title = "";
+        for (int i = 0; i < tierIndex; i++) {
+            String line = lines.get(i);
+            if (!isTooltipMetadata(line)) {
+                title = line;
+                break;
+            }
+        }
+        if (title.isBlank()) return null;
+
+        List<String> descriptionLines = new ArrayList<>();
+        boolean complete = false;
+        for (int i = tierIndex + 1; i < lines.size(); i++) {
+            String line = lines.get(i);
+            if (isIncompleteLine(line)) {
+                complete = false;
+                break;
+            }
+            if (isCompleteLine(line)) {
+                complete = true;
+                break;
+            }
+            if (isTooltipMetadata(line)) {
+                break;
+            }
+            descriptionLines.add(line);
+        }
+
+        return new ObservedRaffleTask(tier, title, String.join(" ", descriptionLines), complete);
+    }
+
+    private static List<String> cleanedTooltipLines(List<String> tooltip) {
+        List<String> lines = new ArrayList<>();
+        for (String rawLine : tooltip) {
+            String line = stripFormatting(rawLine).trim();
+            if (line.isBlank()) continue;
+            if (!lines.isEmpty() && lines.get(lines.size() - 1).equals(line)) continue;
+            lines.add(line);
+        }
+        return lines;
+    }
+
+    private static void parseTaskProgress(String text) {
+        Matcher tierProgress = TASK_PROGRESS.matcher(text);
+        while (tierProgress.find()) {
+            CenturyRaffleHelperMod.STATE.setTaskProgress(
+                parseTier(tierProgress.group(3)),
+                parseNumber(tierProgress.group(1)),
+                parseNumber(tierProgress.group(2))
+            );
+        }
+
+        Matcher totalProgress = TOTAL_TASK_PROGRESS.matcher(text);
+        if (totalProgress.find()) {
+            CenturyRaffleHelperMod.STATE.setTotalTaskProgress(
+                parseNumber(totalProgress.group(1)),
+                parseNumber(totalProgress.group(2))
+            );
         }
     }
 
@@ -159,6 +262,30 @@ public final class RaffleLogic {
         }
     }
 
+    private static void parseRaffleDrawTooltip(String text) {
+        RaffleDraw raffle = raffleDrawFromText(text);
+        if (raffle == null) {
+            return;
+        }
+
+        Matcher entered = ENTERED_RAFFLE_TICKETS.matcher(text);
+        if (entered.find()) {
+            CenturyRaffleHelperMod.STATE.setRaffleEnteredTickets(raffle, parseNumber(entered.group(1)));
+        }
+
+        String lower = text.toLowerCase(Locale.ROOT);
+        int untilDrawIndex = lower.indexOf("until draw");
+        if (untilDrawIndex >= 0) {
+            long millis = parseDurationMillis(text.substring(untilDrawIndex));
+            if (millis > 0L) {
+                CenturyRaffleHelperMod.STATE.setRaffleDrawFromDuration(raffle, millis);
+                if (raffle == RaffleDraw.BIG_ONE) {
+                    CenturyRaffleHelperMod.STATE.setEventEndFromDuration(millis);
+                }
+            }
+        }
+    }
+
     private static void parseEventEndFromLine(String text) {
         String lower = text.toLowerCase(Locale.ROOT);
         if (!containsAny(lower, "century raffle", "big one", "raffle ends", "event ends", "concludes")) {
@@ -167,6 +294,19 @@ public final class RaffleLogic {
         long millis = parseDurationMillis(text);
         if (millis > 0) {
             CenturyRaffleHelperMod.STATE.setEventEndFromDuration(millis);
+        }
+    }
+
+    private static void parseTaskResetFromLine(String text) {
+        String lower = text.toLowerCase(Locale.ROOT);
+        int resetIndex = lower.indexOf("time until reset");
+        if (resetIndex < 0) {
+            return;
+        }
+
+        long millis = parseDurationMillis(text.substring(resetIndex));
+        if (millis > 0) {
+            CenturyRaffleHelperMod.STATE.setTaskResetFromDuration(millis);
         }
     }
 
@@ -222,6 +362,18 @@ public final class RaffleLogic {
         return Math.max(0L, end - System.currentTimeMillis());
     }
 
+    public static long millisUntilRaffleDraw(RaffleDraw raffle) {
+        long end = CenturyRaffleHelperMod.STATE.raffleDrawEpochMillis(raffle);
+        if (end <= 0L) return -1L;
+        return Math.max(0L, end - System.currentTimeMillis());
+    }
+
+    public static long millisUntilTaskReset() {
+        long end = CenturyRaffleHelperMod.STATE.taskResetEpochMillis;
+        if (end <= 0) return -1L;
+        return Math.max(0L, end - System.currentTimeMillis());
+    }
+
     public static String formatDuration(long millis) {
         if (millis < 0) return "Unknown";
         long seconds = Math.max(0L, millis / 1000L);
@@ -233,7 +385,7 @@ public final class RaffleLogic {
         seconds %= 60L;
 
         if (days > 0) return days + "d " + hours + "h " + minutes + "m";
-        if (hours > 0) return hours + "h " + minutes + "m";
+        if (hours > 0) return hours + "h " + minutes + "m " + seconds + "s";
         if (minutes > 0) return minutes + "m " + seconds + "s";
         return seconds + "s";
     }
@@ -254,6 +406,89 @@ public final class RaffleLogic {
             }
         }
         return false;
+    }
+
+    private static int ticketGain(String plain) {
+        Matcher gained = GAINED_TICKETS.matcher(plain);
+        return gained.find() ? parseNumber(gained.group(1)) : 0;
+    }
+
+    private static boolean duplicateTicketGain(String plain) {
+        long now = System.currentTimeMillis();
+        if (plain.equals(lastTicketGainMessage) && now - lastTicketGainMillis < 1_000L) {
+            return true;
+        }
+
+        lastTicketGainMessage = plain;
+        lastTicketGainMillis = now;
+        return false;
+    }
+
+    private static boolean hasHypixelScoreboard(Minecraft client) {
+        if (client.level == null) return false;
+        Scoreboard scoreboard = client.level.getScoreboard();
+        Objective objective = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
+        if (objective == null) return false;
+
+        for (PlayerScoreEntry entry : scoreboard.listPlayerScores(objective)) {
+            if (entry.isHidden()) continue;
+            String line = stripFormatting(scoreboardLine(scoreboard, entry)).toLowerCase(Locale.ROOT);
+            if (isHypixelAddress(line)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isHypixelAddress(String address) {
+        if (address == null) return false;
+        String normalized = address.toLowerCase(Locale.ROOT);
+        return normalized.contains("hypixel.net")
+            || normalized.contains("hypixel.io")
+            || normalized.contains("alpha.hypixel");
+    }
+
+    private static RaffleDraw raffleDrawFromText(String text) {
+        String normalized = text.toLowerCase(Locale.ROOT);
+        if (normalized.contains("speed raffle")) {
+            return RaffleDraw.SPEED;
+        }
+        if (normalized.contains("daily raffle") && !normalized.contains("daily raffle tasks")) {
+            return RaffleDraw.DAILY;
+        }
+        if (normalized.contains("big one")) {
+            return RaffleDraw.BIG_ONE;
+        }
+        return null;
+    }
+
+    private static boolean isIncompleteLine(String line) {
+        return RaffleTask.normalize(line).equals("incomplete");
+    }
+
+    private static boolean isCompleteLine(String line) {
+        String normalized = RaffleTask.normalize(line);
+        return normalized.equals("complete")
+            || normalized.equals("completed")
+            || normalized.equals("status complete")
+            || normalized.equals("status completed");
+    }
+
+    private static boolean isTooltipMetadata(String line) {
+        return ITEM_ID_LINE.matcher(line).matches()
+            || COMPONENTS_LINE.matcher(line).matches()
+            || line.equalsIgnoreCase("minecraft:map")
+            || line.equalsIgnoreCase("minecraft:filled_map")
+            || line.equalsIgnoreCase("minecraft:paper");
+    }
+
+    private static TaskTier parseTier(String text) {
+        String normalized = text.toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "medium" -> TaskTier.MEDIUM;
+            case "hard" -> TaskTier.HARD;
+            default -> TaskTier.EASY;
+        };
     }
 
     private static int parseNumber(String text) {

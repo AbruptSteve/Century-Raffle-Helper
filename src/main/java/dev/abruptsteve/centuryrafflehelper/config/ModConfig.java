@@ -12,6 +12,9 @@ import io.github.notenoughupdates.moulconfig.common.text.StructuredText;
 
 public class ModConfig extends Config {
     @Expose
+    public int configVersion = 0;
+
+    @Expose
     @Category(name = "General", desc = "General Century Raffle Helper settings.")
     public General general = new General();
 
@@ -26,6 +29,10 @@ public class ModConfig extends Config {
     @Expose
     @Category(name = "Tasks", desc = "Daily easy, medium, and hard task HUD settings.")
     public Tasks tasks = new Tasks();
+
+    @Expose
+    @Category(name = "Dev", desc = "Debug tools for testing Century Raffle Helper features.")
+    public Dev dev = new Dev();
 
     @Override
     public StructuredText getTitle() {
@@ -49,6 +56,11 @@ public class ModConfig extends Config {
         public boolean launchWarning = true;
 
         @Expose
+        @ConfigOption(name = "Cake Team Glow", desc = "Glow-highlight players on the team matching your held Slice Of Century Cake.")
+        @ConfigEditorBoolean
+        public boolean cakeTeamGlow = true;
+
+        @Expose
         @ConfigOption(name = "Reset Hour UTC", desc = "Hypixel daily reset hour in UTC. Default is 0.")
         @ConfigEditorSlider(minValue = 0.0f, maxValue = 23.0f, minStep = 1.0f)
         public int resetHourUtc = 0;
@@ -69,11 +81,6 @@ public class ModConfig extends Config {
         public boolean showTimerHud = true;
 
         @Expose
-        @ConfigOption(name = "Ticket HUD", desc = "Show total raffle tickets.")
-        @ConfigEditorBoolean
-        public boolean showTicketHud = true;
-
-        @Expose
         @ConfigOption(name = "Cake Eater HUD", desc = "Show how many cake slices can still be eaten today.")
         @ConfigEditorBoolean
         public boolean showCakeHud = true;
@@ -84,16 +91,21 @@ public class ModConfig extends Config {
         public boolean showTaskHud = true;
 
         @Expose
-        public HudPosition timerPosition = new HudPosition(10, 50);
+        @ConfigOption(name = "Milestone Tracker HUD", desc = "Show raffle milestone progress from gained tickets.")
+        @ConfigEditorBoolean
+        public boolean showMilestoneHud = true;
 
         @Expose
-        public HudPosition ticketPosition = new HudPosition(10, 95);
+        public HudPosition timerPosition = new HudPosition(799, 43, 0.8f);
 
         @Expose
-        public HudPosition cakePosition = new HudPosition(10, 115);
+        public HudPosition cakePosition = new HudPosition(862, 24, 0.8f);
 
         @Expose
-        public HudPosition taskPosition = new HudPosition(10, 145);
+        public HudPosition taskPosition = new HudPosition(9, 11, 0.9f);
+
+        @Expose
+        public HudPosition milestonePosition = new HudPosition(25, 300, 1.0f);
     }
 
     public static class Timers {
@@ -122,7 +134,17 @@ public class ModConfig extends Config {
         @Expose
         @ConfigOption(name = "Show Descriptions", desc = "Show task descriptions instead of task names.")
         @ConfigEditorBoolean
-        public boolean showDescriptions = false;
+        public boolean showDescriptions = true;
+
+        @Expose
+        @ConfigOption(name = "Time Until Reset", desc = "Show the task reset timer gathered from the raffle box menu.")
+        @ConfigEditorBoolean
+        public boolean showTimeUntilReset = true;
+
+        @Expose
+        @ConfigOption(name = "Visible Tasks Per Tier", desc = "Maximum incomplete tasks shown under each tier.")
+        @ConfigEditorSlider(minValue = 1.0f, maxValue = 7.0f, minStep = 1.0f)
+        public int visibleTasksPerTier = 7;
 
         @Expose
         @ConfigOption(name = "Easy Tasks", desc = "Show incomplete easy tasks.")
@@ -143,5 +165,17 @@ public class ModConfig extends Config {
         @ConfigOption(name = "Completed Summary", desc = "Show a small completed count when all visible tasks are done.")
         @ConfigEditorBoolean
         public boolean showCompletedSummary = true;
+    }
+
+    public static class Dev {
+        @Expose
+        @ConfigOption(name = "Highlight All Cake Teams", desc = "Highlight every detected cake team member without holding a cake slice.")
+        @ConfigEditorBoolean
+        public boolean highlightAllCakeTeams = false;
+
+        @Expose
+        @ConfigOption(name = "Cake Glow Debug", desc = "Enable extra cake glow debug behavior and command output.")
+        @ConfigEditorBoolean
+        public boolean cakeGlowDebug = false;
     }
 }

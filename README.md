@@ -7,12 +7,16 @@ Century Raffle Helper can be configured with `/crh`, and HUD elements can be mov
 ## Features
 
 - Raffle Timers: Shows Speed Raffle, Daily Raffle, and The Big One timers.
-- Ticket HUD: Displays your current raffle ticket count when known.
-- Cake Eater HUD: Tracks how many Century Cake slices you can still eat today.
+- Raffle Milestone Tracker: Tracks gained raffle tickets and shows progress toward the next milestone.
+- Cake Eater HUD: Tracks 25 Century Cake slices per 2-hour Speed Raffle cycle with a synced reset timer.
 - Daily Task HUD: Shows incomplete Easy, Medium, and Hard raffle tasks.
+- Task Descriptions: Shows task descriptions by default instead of only task names.
 - Compact Task Display: Keeps task lists readable with numbered entries and overflow indicators.
+- Cake Team Glow: Highlights players on the matching cake team while holding the correct Slice Of Century Cake.
+- Dev Debug Tools: Includes cake glow debug output and a highlight-all cake teams toggle for testing.
 - Moveable HUD: Drag, scale, reset, and position each HUD element in the HUD editor.
-- Config Menu: Toggle HUD elements, timers, task tiers, and reminders.
+- Config Menu: Toggle HUD elements, timers, task tiers, reminders, glow options, and debug tools.
+- Persistent Config: Saves HUD positions, scales, and settings to the mod config.
 - Hypixel Only Mode: Optionally hides the HUD when you are not connected to Hypixel.
 
 ## HUD Editor
@@ -31,7 +35,8 @@ From there, you can drag HUD elements around your screen, scroll to resize them,
 - `/crh gui` - Opens the HUD editor.
 - `/crh edit` - Opens the HUD editor.
 - `/crh reset` - Resets today's tracked raffle state.
+- `/crh cakedebug` - Dumps cake glow detection data to `latest.log`.
 
-## Notes
+## Note
 
 For the most accurate information, open the Hypixel SkyBlock raffle menu at least once after joining so the mod can read your current raffle data.

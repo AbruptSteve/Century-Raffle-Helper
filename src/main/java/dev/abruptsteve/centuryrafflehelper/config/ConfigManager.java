@@ -21,8 +21,13 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.Map;
 
 public class ConfigManager {
+    private static final int CURRENT_CONFIG_VERSION = 3;
+    private static final float DEFAULT_POSITION_SCALE = 1.0f;
     private static final Gson GSON = new GsonBuilder()
         .excludeFieldsWithoutExposeAnnotation()
         .enableComplexMapKeySerialization()
@@ -42,13 +47,40 @@ public class ConfigManager {
     }
 
     public ModConfig loadConfig() {
-        return load(configPath, ModConfig.class, new ModConfig());
+        ModConfig config = load(configPath, ModConfig.class, new ModConfig());
+        repairConfig(config);
+        migrateConfig(config);
+        return config;
     }
 
     public RaffleState loadState() {
         RaffleState state = load(statePath, RaffleState.class, new RaffleState());
         if (state.completedTasks == null) {
             state.completedTasks = new java.util.EnumMap<>(dev.abruptsteve.centuryrafflehelper.raffle.RaffleTask.class);
+        }
+        if (state.observedTasks == null) {
+            state.observedTasks = new ArrayList<>();
+        }
+        if (state.raffleDrawEpochMillis == null) {
+            state.raffleDrawEpochMillis = new EnumMap<>(dev.abruptsteve.centuryrafflehelper.raffle.RaffleDraw.class);
+        } else if (!(state.raffleDrawEpochMillis instanceof EnumMap)) {
+            Map<dev.abruptsteve.centuryrafflehelper.raffle.RaffleDraw, Long> loaded = state.raffleDrawEpochMillis;
+            state.raffleDrawEpochMillis = new EnumMap<>(dev.abruptsteve.centuryrafflehelper.raffle.RaffleDraw.class);
+            state.raffleDrawEpochMillis.putAll(loaded);
+        }
+        if (state.raffleEnteredTickets == null) {
+            state.raffleEnteredTickets = new EnumMap<>(dev.abruptsteve.centuryrafflehelper.raffle.RaffleDraw.class);
+        } else if (!(state.raffleEnteredTickets instanceof EnumMap)) {
+            Map<dev.abruptsteve.centuryrafflehelper.raffle.RaffleDraw, Integer> loaded = state.raffleEnteredTickets;
+            state.raffleEnteredTickets = new EnumMap<>(dev.abruptsteve.centuryrafflehelper.raffle.RaffleDraw.class);
+            state.raffleEnteredTickets.putAll(loaded);
+        }
+        if (state.taskProgress == null) {
+            state.taskProgress = new EnumMap<>(dev.abruptsteve.centuryrafflehelper.raffle.TaskTier.class);
+        } else if (!(state.taskProgress instanceof EnumMap)) {
+            Map<dev.abruptsteve.centuryrafflehelper.raffle.TaskTier, dev.abruptsteve.centuryrafflehelper.raffle.TaskProgress> loaded = state.taskProgress;
+            state.taskProgress = new EnumMap<>(dev.abruptsteve.centuryrafflehelper.raffle.TaskTier.class);
+            state.taskProgress.putAll(loaded);
         }
         if (state.dailyKey == null || state.dailyKey.isBlank()) {
             state.dailyKey = state.currentDailyKey();
@@ -105,6 +137,67 @@ public class ConfigManager {
         } catch (Exception ignored) {
             return fallback;
         }
+    }
+
+    private void repairConfig(ModConfig config) {
+        if (config.general == null) {
+            config.general = new ModConfig.General();
+        }
+        if (config.hud == null) {
+            config.hud = new ModConfig.Hud();
+        }
+        if (config.timers == null) {
+            config.timers = new ModConfig.Timers();
+        }
+        if (config.tasks == null) {
+            config.tasks = new ModConfig.Tasks();
+        }
+        if (config.dev == null) {
+            config.dev = new ModConfig.Dev();
+        }
+        if (config.hud.timerPosition == null) {
+            config.hud.timerPosition = new HudPosition(799, 43, 0.8f);
+        }
+        if (config.hud.cakePosition == null) {
+            config.hud.cakePosition = new HudPosition(862, 24, 0.8f);
+        }
+        if (config.hud.taskPosition == null) {
+            config.hud.taskPosition = new HudPosition(9, 11, 0.9f);
+        }
+        if (config.hud.milestonePosition == null) {
+            config.hud.milestonePosition = new HudPosition(25, 300, 1.0f);
+        }
+    }
+
+    private void migrateConfig(ModConfig config) {
+        if (config.configVersion >= CURRENT_CONFIG_VERSION) {
+            return;
+        }
+
+        if (isPosition(config.hud.timerPosition, 10, 50, DEFAULT_POSITION_SCALE)) {
+            config.hud.timerPosition = new HudPosition(799, 43, 0.8f);
+        }
+        if (isPosition(config.hud.cakePosition, 10, 115, DEFAULT_POSITION_SCALE)) {
+            config.hud.cakePosition = new HudPosition(862, 24, 0.8f);
+        }
+        if (isPosition(config.hud.taskPosition, 10, 145, DEFAULT_POSITION_SCALE)) {
+            config.hud.taskPosition = new HudPosition(9, 11, 0.9f);
+        }
+        if (isPosition(config.hud.milestonePosition, 10, 210, DEFAULT_POSITION_SCALE)) {
+            config.hud.milestonePosition = new HudPosition(25, 300, 1.0f);
+        }
+        if (config.tasks.visibleTasksPerTier == 3) {
+            config.tasks.visibleTasksPerTier = 7;
+        }
+        config.tasks.showDescriptions = true;
+        config.configVersion = CURRENT_CONFIG_VERSION;
+    }
+
+    private boolean isPosition(HudPosition position, int x, int y, float scale) {
+        return position != null
+            && position.x == x
+            && position.y == y
+            && Math.abs(position.scale - scale) < 0.001f;
     }
 
     private void save(Path path, Object data) {

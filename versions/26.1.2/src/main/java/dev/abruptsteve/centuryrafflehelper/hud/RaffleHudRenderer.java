@@ -5,14 +5,14 @@ import dev.abruptsteve.centuryrafflehelper.config.HudPosition;
 import dev.abruptsteve.centuryrafflehelper.raffle.ObservedRaffleTask;
 import dev.abruptsteve.centuryrafflehelper.raffle.RaffleDraw;
 import dev.abruptsteve.centuryrafflehelper.raffle.RaffleLogic;
-import dev.abruptsteve.centuryrafflehelper.raffle.TaskTier;
 import dev.abruptsteve.centuryrafflehelper.raffle.TaskProgress;
+import dev.abruptsteve.centuryrafflehelper.raffle.TaskTier;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
@@ -41,11 +41,11 @@ public final class RaffleHudRenderer {
         HudElementRegistry.attachElementBefore(
             VanillaHudElements.SLEEP,
             Identifier.fromNamespaceAndPath(CenturyRaffleHelperMod.MOD_ID, "hud"),
-            RaffleHudRenderer::render
+            RaffleHudRenderer::extractRenderState
         );
     }
 
-    public static void render(GuiGraphics graphics, DeltaTracker tickCounter) {
+    public static void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker tickCounter) {
         Minecraft client = Minecraft.getInstance();
         if (client.options.hideGui || !RaffleLogic.shouldRunOnCurrentServer()) return;
         for (HudBlock block : currentBlocks(false)) {
@@ -72,7 +72,7 @@ public final class RaffleHudRenderer {
         return blocks;
     }
 
-    public static void renderBlock(GuiGraphics graphics, HudBlock block, boolean editor, boolean hovered) {
+    public static void renderBlock(GuiGraphicsExtractor graphics, HudBlock block, boolean editor, boolean hovered) {
         List<HudLine> lines = block.lines();
         if (lines.isEmpty()) {
             lines = List.of(new HudLine(block.label(), MUTED));
@@ -85,7 +85,7 @@ public final class RaffleHudRenderer {
         float scale = position.scale();
 
         if (editor) {
-            graphics.renderOutline(x - EDITOR_BORDER, y - EDITOR_BORDER, scaledWidth(block) + 8, scaledHeight(block) + 7, hovered ? 0xffffffff : 0xffaaaaaa);
+            graphics.outline(x - EDITOR_BORDER, y - EDITOR_BORDER, scaledWidth(block) + 8, scaledHeight(block) + 7, hovered ? 0xffffffff : 0xffaaaaaa);
         }
 
         graphics.pose().pushMatrix();
@@ -94,7 +94,7 @@ public final class RaffleHudRenderer {
         try {
             int lineY = 0;
             for (HudLine line : lines) {
-                graphics.drawString(font, line.text(), 0, lineY, opaque(line.color()), true);
+                graphics.text(font, line.text(), 0, lineY, opaque(line.color()), true);
                 lineY += font.lineHeight + 1;
             }
         } finally {

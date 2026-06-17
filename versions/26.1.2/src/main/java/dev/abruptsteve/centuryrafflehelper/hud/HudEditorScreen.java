@@ -2,7 +2,7 @@ package dev.abruptsteve.centuryrafflehelper.hud;
 
 import dev.abruptsteve.centuryrafflehelper.CenturyRaffleHelperMod;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -23,15 +23,15 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         lastMouseX = mouseX;
         lastMouseY = mouseY;
-        renderTransparentBackground(graphics);
+        extractTransparentBackground(graphics);
         List<HudBlock> blocks = RaffleHudRenderer.currentBlocks(true);
         fitBlocksToScreen(blocks);
         HudBlock hoveredBlock = hoveredBlock(blocks, mouseX, mouseY);
 
-        graphics.drawCenteredString(
+        graphics.centeredText(
             Minecraft.getInstance().font,
             "Century Raffle Helper Position Editor",
             width / 2,
@@ -44,7 +44,7 @@ public class HudEditorScreen extends Screen {
         }
 
         renderTooltip(graphics, hoveredBlock, mouseX, mouseY);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -174,7 +174,7 @@ public class HudEditorScreen extends Screen {
         super.onClose();
     }
 
-    private void renderTooltip(GuiGraphics graphics, HudBlock block, int mouseX, int mouseY) {
+    private void renderTooltip(GuiGraphicsExtractor graphics, HudBlock block, int mouseX, int mouseY) {
         if (block == null) {
             return;
         }

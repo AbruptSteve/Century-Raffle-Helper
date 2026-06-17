@@ -1,0 +1,8 @@
+plugins {
+    id "net.fabricmc.fabric-loom" version "1.16-SNAPSHOT"
+    id "maven-publish"
+}
+
+ext.crh_source_root = file("../..")
+
+apply from: "../../build-common.gradle"

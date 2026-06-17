@@ -10,8 +10,8 @@ import dev.abruptsteve.centuryrafflehelper.raffle.RaffleLogic;
 import dev.abruptsteve.centuryrafflehelper.raffle.RaffleState;
 import dev.abruptsteve.centuryrafflehelper.update.UpdateManager;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -66,9 +66,9 @@ public class CenturyRaffleHelperMod implements ClientModInitializer {
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (!launchMessageShown && CONFIG.general.launchWarning && client.player != null) {
                 launchMessageShown = true;
-                client.player.displayClientMessage(chatMessage(
+                client.player.sendSystemMessage(chatMessage(
                     "To prevent false info and mismatched information please open the raffle menu at least once upon launching to ensure all displayed information is correct!"
-                ), false);
+                ));
             }
         });
 
@@ -101,58 +101,58 @@ public class CenturyRaffleHelperMod implements ClientModInitializer {
         CommandDispatcher<FabricClientCommandSource> dispatcher,
         CommandBuildContext registryAccess
     ) {
-        dispatcher.register(ClientCommandManager.literal("crh")
+        dispatcher.register(ClientCommands.literal("crh")
             .executes(context -> {
                 CONFIG_MANAGER.openConfigScreen();
                 return 1;
             })
-            .then(ClientCommandManager.literal("config")
+            .then(ClientCommands.literal("config")
                 .executes(context -> {
                     CONFIG_MANAGER.openConfigScreen();
                     return 1;
                 }))
-            .then(ClientCommandManager.literal("hud")
+            .then(ClientCommands.literal("hud")
                 .executes(context -> {
                     openHudEditor();
                     return 1;
                 }))
-            .then(ClientCommandManager.literal("gui")
+            .then(ClientCommands.literal("gui")
                 .executes(context -> {
                     openHudEditor();
                     return 1;
                 }))
-            .then(ClientCommandManager.literal("edit")
+            .then(ClientCommands.literal("edit")
                 .executes(context -> {
                     openHudEditor();
                     return 1;
                 }))
-            .then(ClientCommandManager.literal("reset")
+            .then(ClientCommands.literal("reset")
                 .executes(context -> {
                     STATE.resetDaily(true);
                     context.getSource().sendFeedback(chatMessage("Century Raffle Helper daily state reset."));
                     return 1;
                 }))
-            .then(ClientCommandManager.literal("update")
+            .then(ClientCommands.literal("update")
                 .executes(context -> {
                     UpdateManager.sendStatus(context.getSource());
                     return 1;
                 })
-                .then(ClientCommandManager.literal("status")
+                .then(ClientCommands.literal("status")
                     .executes(context -> {
                         UpdateManager.sendStatus(context.getSource());
                         return 1;
                     }))
-                .then(ClientCommandManager.literal("on")
+                .then(ClientCommands.literal("on")
                     .executes(context -> {
                         UpdateManager.enable(context.getSource());
                         return 1;
                     }))
-                .then(ClientCommandManager.literal("off")
+                .then(ClientCommands.literal("off")
                     .executes(context -> {
                         context.getSource().sendFeedback(chatMessage("Updater turned off."));
                         return 1;
                     })))
-            .then(ClientCommandManager.literal("cakedebug")
+            .then(ClientCommands.literal("cakedebug")
                 .executes(context -> {
                     sendCakeDebug(context.getSource());
                     return 1;

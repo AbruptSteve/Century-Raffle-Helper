@@ -1,0 +1,11 @@
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url = "https://maven.fabricmc.net" }
+        maven { url = "https://repo.nea.moe/releases" }
+        maven { url = "https://oss.sonatype.org/content/repositories/snapshots" }
+    }
+}
+
+rootProject.name = "century-raffle-helper-26.1.2"

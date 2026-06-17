@@ -3,7 +3,11 @@
 	"package": "steve.crh.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ExampleMixin"
+	],
+	"client": [
+		"CenturyCakeEntityMixin",
+		"CenturyCakeMinecraftMixin",
+		"CenturyCakeEntityRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
