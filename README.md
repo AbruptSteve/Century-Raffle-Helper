@@ -14,7 +14,7 @@ Century Raffle Helper can be configured with `/crh`, and HUD elements can be mov
 - Compact Task Display: Keeps task lists readable with numbered entries and overflow indicators.
 - Cake Team Glow: Highlights players on the matching cake team while holding the correct Slice Of Century Cake.
 - Dev Debug Tools: Includes cake glow debug output and a highlight-all cake teams toggle for testing.
-- Moveable HUD: Drag, scale, reset, and position each HUD element in the HUD editor.
+- Movable HUD: Drag, scale, reset, and position each HUD element in the HUD editor.
 - Config Menu: Toggle HUD elements, timers, task tiers, reminders, glow options, and debug tools.
 - Persistent Config: Saves HUD positions, scales, and settings to the mod config.
 - Hypixel Only Mode: Optionally hides the HUD when you are not connected to Hypixel.
