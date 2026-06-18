@@ -92,8 +92,8 @@ public final class UpdateManager {
         checkForUpdatesAsync(true);
     }
 
-    public static void disable(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
-        updateState.autoUpdateEnabled = false;
+    public static void (net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
+        // updateState.autoUpdateEnabled = false;
         saveState();
         clearPendingUpdate();
         statusLine = "Auto updater is disabled. Use /crh update on to enable it.";
