@@ -92,7 +92,7 @@ public final class UpdateManager {
         checkForUpdatesAsync(true);
     }
 
-    public static void (net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
+    public static void disable(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
         // updateState.autoUpdateEnabled = false;
         saveState();
         clearPendingUpdate();
