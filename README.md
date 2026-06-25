@@ -36,6 +36,7 @@ From there, you can drag HUD elements around your screen, scroll to resize them,
 - `/crh edit` - Opens the HUD editor.
 - `/crh reset` - Resets today's tracked raffle state.
 - `/crh cakedebug` - Dumps cake glow detection data to `latest.log`.
+- `/crh update` - on, status & off, turns on and off the auto updater.
 
 ## Note
 
